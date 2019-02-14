@@ -28,62 +28,55 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
-// podAnnotator annotates Pods
-type podAnnotator struct {
+type serviceMutator struct {
 	client  client.Client
 	decoder types.Decoder
 }
 
-// Implement admission.Handler so the controller can handle admission request.
-var _ admission.Handler = &podAnnotator{}
+var _ admission.Handler = &serviceMutator{}
 
-// podAnnotator adds an annotation to every incoming pods.
-func (a *podAnnotator) Handle(ctx context.Context, req types.Request) types.Response {
-	pod := &corev1.Pod{}
+func (a *serviceMutator) Handle(ctx context.Context, req types.Request) types.Response {
+	service := &corev1.Service{}
 
-	err := a.decoder.Decode(req, pod)
+	err := a.decoder.Decode(req, service)
 	if err != nil {
 		return admission.ErrorResponse(http.StatusBadRequest, err)
 	}
 
-	err = a.mutatePodsFn(ctx, pod)
+	err = a.mutateServicesFn(ctx, service)
 	if err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	marshaledPod, err := json.Marshal(pod)
+	marshaledService, err := json.Marshal(service)
 	if err != nil {
 		return admission.ErrorResponse(http.StatusInternalServerError, err)
 	}
 
-	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, marshaledPod)
+	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, marshaledService)
 }
 
-// mutatePodsFn add an annotation to the given pod
-func (a *podAnnotator) mutatePodsFn(ctx context.Context, pod *corev1.Pod) error {
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
+func (a *serviceMutator) mutateServicesFn(ctx context.Context, service *corev1.Service) error {
+	if  service.Annotations["loadbalancer-source-ranger-mutating-admission-webhook"] != "false" &&
+		service.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		//TODO Get IP Address from container env
+		service.Spec.LoadBalancerSourceRanges = []string{"0.0.0.0/0"}
+		service.Annotations["loadbalancer-source-ranger-mutating-admission-webhook"] = "true"
 	}
-	pod.Annotations["example-mutating-admission-webhook"] = "foo"
+
 	return nil
 }
 
-// podAnnotator implements inject.Client.
-// A client will be automatically injected.
-var _ inject.Client = &podAnnotator{}
+var _ inject.Client = &serviceMutator{}
 
-// InjectClient injects the client.
-func (v *podAnnotator) InjectClient(c client.Client) error {
+func (v *serviceMutator) InjectClient(c client.Client) error {
 	v.client = c
 	return nil
 }
 
-// podAnnotator implements inject.Decoder.
-// A decoder will be automatically injected.
-var _ inject.Decoder = &podAnnotator{}
+var _ inject.Decoder = &serviceMutator{}
 
-// InjectDecoder injects the decoder.
-func (v *podAnnotator) InjectDecoder(d types.Decoder) error {
+func (v *serviceMutator) InjectDecoder(d types.Decoder) error {
 	v.decoder = d
 	return nil
 }

@@ -21,17 +21,13 @@ import (
 	"os"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder"
 )
@@ -55,29 +51,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup a new controller to Reconciler ReplicaSets
-	entryLog.Info("Setting up controller")
-	c, err := controller.New("foo-controller", mgr, controller.Options{
-		Reconciler: &reconcileReplicaSet{client: mgr.GetClient(), log: log.WithName("reconciler")},
-	})
-	if err != nil {
-		entryLog.Error(err, "unable to set up individual controller")
-		os.Exit(1)
-	}
-
-	// Watch ReplicaSets and enqueue ReplicaSet object key
-	if err := c.Watch(&source.Kind{Type: &appsv1.ReplicaSet{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		entryLog.Error(err, "unable to watch ReplicaSets")
-		os.Exit(1)
-	}
-
-	// Watch Pods and enqueue owning ReplicaSet key
-	if err := c.Watch(&source.Kind{Type: &corev1.Pod{}},
-		&handler.EnqueueRequestForOwner{OwnerType: &appsv1.ReplicaSet{}, IsController: true}); err != nil {
-		entryLog.Error(err, "unable to watch Pods")
-		os.Exit(1)
-	}
-
 	// Setup webhooks
 	entryLog.Info("setting up webhooks")
 	mutatingWebhook, err := builder.NewWebhookBuilder().
@@ -85,39 +58,25 @@ func main() {
 		Mutating().
 		Operations(admissionregistrationv1beta1.Create, admissionregistrationv1beta1.Update).
 		WithManager(mgr).
-		ForType(&corev1.Pod{}).
-		Handlers(&podAnnotator{}).
+		ForType(&corev1.Service{}).
+		Handlers(&serviceMutator{}).
 		Build()
 	if err != nil {
 		entryLog.Error(err, "unable to setup mutating webhook")
 		os.Exit(1)
 	}
 
-	validatingWebhook, err := builder.NewWebhookBuilder().
-		Name("validating.k8s.io").
-		Validating().
-		Operations(admissionregistrationv1beta1.Create, admissionregistrationv1beta1.Update).
-		WithManager(mgr).
-		ForType(&corev1.Pod{}).
-		Handlers(&podValidator{}).
-		Build()
-	if err != nil {
-		entryLog.Error(err, "unable to setup validating webhook")
-		os.Exit(1)
-	}
-
 	entryLog.Info("setting up webhook server")
-	as, err := webhook.NewServer("foo-admission-server", mgr, webhook.ServerOptions{
+	as, err := webhook.NewServer("loadbalancer-source-ranger-server", mgr, webhook.ServerOptions{
 		Port:                          9876,
 		CertDir:                       "/tmp/cert",
 		DisableWebhookConfigInstaller: &disableWebhookConfigInstaller,
 		BootstrapOptions: &webhook.BootstrapOptions{
 			Service: &webhook.Service{
 				Namespace: "default",
-				Name:      "foo-admission-server-service",
-				// Selectors should select the pods that runs this webhook server.
+				Name:      "loadbalancer-source-ranger-service",
 				Selectors: map[string]string{
-					"app": "foo-admission-server",
+					"app": "loadbalancer-source-ranger",
 				},
 			},
 		},
@@ -127,10 +86,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	entryLog.Info("registering webhooks to the webhook server")
-	err = as.Register(mutatingWebhook, validatingWebhook)
+	entryLog.Info("registering mutating webhook to the webhook server")
+	err = as.Register(mutatingWebhook)
 	if err != nil {
-		entryLog.Error(err, "unable to register webhooks in the admission server")
+		entryLog.Error(err, "unable to register mutating webhook in the admission server")
 		os.Exit(1)
 	}
 

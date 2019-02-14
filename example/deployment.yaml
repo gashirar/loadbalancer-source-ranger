@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: loadbalancer-source-ranger
+  name: loadbalancer-source-ranger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loadbalancer-source-ranger
+  template:
+    metadata:
+      labels:
+        app: loadbalancer-source-ranger
+    spec:
+      containers:
+      - image: gashirar/loadbalancer-source-ranger:v1
+        name: loadbalancer-source-ranger
+      serviceAccount: loadbalancer-source-ranger

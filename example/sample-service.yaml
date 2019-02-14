@@ -1,0 +1,39 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: clusterip-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: loadbalancer-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: loadbalancer-with-mutating-disabled-service
+  annotations:
+    loadbalancer-source-ranger-mutating-admission-webhook: "false"
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
