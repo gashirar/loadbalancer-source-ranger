@@ -24,13 +24,11 @@ This webhook automatically sets `loadBalancerSourceRanges` to Service.
 
 ```
 # deploy webhook
-kubectl apply -f example/serviceaccount.yaml
-kubectl apply -f example/clusterrolebinding.yaml
-kubectl apply -f example/deployment.yaml
+./deploy.sh
 
 # apply Service
 kubectl apply -f example/sample-service.yaml
 ```
 
 # TODO
-Parameterize IP souces...
+-[x] Parameterinze IP ranges.
