@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,8 +61,9 @@ func (a *serviceMutator) Handle(ctx context.Context, req types.Request) types.Re
 func (a *serviceMutator) mutateServicesFn(ctx context.Context, service *corev1.Service) error {
 	if  service.Annotations["loadbalancer-source-ranger-mutating-admission-webhook"] != "false" &&
 		service.Spec.Type == corev1.ServiceTypeLoadBalancer {
-		//TODO Get IP Address from container env
-		service.Spec.LoadBalancerSourceRanges = []string{"0.0.0.0/0"}
+
+		ipAddrs := strings.Fields(os.Getenv("ALLOW_IP_ADDRESSES"))
+		service.Spec.LoadBalancerSourceRanges = ipAddrs
 		service.Annotations["loadbalancer-source-ranger-mutating-admission-webhook"] = "true"
 	}
 

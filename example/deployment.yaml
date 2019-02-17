@@ -17,4 +17,13 @@ spec:
       containers:
       - image: gashirar/loadbalancer-source-ranger:v1
         name: loadbalancer-source-ranger
+        env:
+        - name: ALLOW_IP_ADDRESSES
+          value: >-
+            10.240.0.0/24
+            10.250.0.0/24
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       serviceAccount: loadbalancer-source-ranger

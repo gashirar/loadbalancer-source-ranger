@@ -73,7 +73,7 @@ func main() {
 		DisableWebhookConfigInstaller: &disableWebhookConfigInstaller,
 		BootstrapOptions: &webhook.BootstrapOptions{
 			Service: &webhook.Service{
-				Namespace: "default",
+				Namespace: os.Getenv("NAMESPACE"),
 				Name:      "loadbalancer-source-ranger-service",
 				Selectors: map[string]string{
 					"app": "loadbalancer-source-ranger",
